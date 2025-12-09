@@ -46,5 +46,12 @@ public class PlayerStats {
     public void clearBestTypeScores(){
         bestTypeScore.clear();
     }
+    /// adding all the different weapons into one score
+    public double add_WeaponScores()
+    {
+        double sum = 0.0;
+        for (double v : bestTypeScore.values()) sum += v;
+        return sum;
+    }
 }
 
