@@ -1,0 +1,289 @@
+package net.TimeIsWhat.AIFinal;
+
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.monster.*;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.Slot;
+import net.minecraftforge.event.entity.item.ItemTossEvent;
+
+import javax.swing.*;
+import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+@Mod.EventBusSubscriber(modid = "aifinal")
+
+public class PlayerEventHandler {
+    /// creating a list of raid mobs
+    private static final Set<Class<?>> RAID_MOBS = Set.of(
+            Pillager.class,
+            Vindicator.class,
+            Evoker.class,
+            Ravager.class,
+            Witch.class
+    );
+
+
+    private static final Map<UUID, PlayerStats> statsMap = new HashMap<>();
+
+    @SubscribeEvent
+    /// logic for when a player dies
+    public static void onPlayerDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            ///  get or create the stats object for this player
+            PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+            ///  updating the death counter
+            stats.setDeaths(stats.get_deaths() + 1);
+            /// output of new death counter
+            player.sendSystemMessage(Component.literal("Death count is now " + stats.get_deaths()));
+        }
+    }
+
+    @SubscribeEvent
+    /// logic for when a player kills a mob
+    public static void onMobKill(LivingDeathEvent event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+            Entity entity = event.getEntity();
+            ;
+            if (RAID_MOBS.contains(entity.getClass())) {
+                PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+                stats.setMobsKilled(stats.get_mobsKilled() + 1);
+                player.sendSystemMessage(Component.literal("You have killed " + stats.get_mobsKilled() + " number of raid mobs"));
+            }
+        }
+    }
+
+    @SubscribeEvent
+    /// detecting if a close call happened
+    public static void playerCloseCall(LivingHurtEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            float newHealth = player.getHealth() - event.getAmount();
+            if (newHealth > 0 && newHealth <= 6.0f) {
+                PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+                stats.setNumberOfCloseCalls(stats.get_numberOfCloseCalls() + 1);
+                player.sendSystemMessage(Component.literal("That was your " + stats.get_numberOfCloseCalls() + " close call!"));
+            }
+        }
+    }
+    /// armor related data
+    @SubscribeEvent
+    public static void onArmorChange(LivingEquipmentChangeEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {/// sorting for only armor
+            if (event.getSlot().isArmor()) {
+                /// getting the new and old armor for armor score calculation
+                ItemStack oldArmor = event.getFrom();
+                ItemStack newArmor = event.getTo();
+                /// get the slot value from the event
+                EquipmentSlot slot = event.getSlot();
+
+                PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+
+                /// checking if armor was removed
+                if (!oldArmor.isEmpty() && newArmor.isEmpty()) {
+                    ArmorStats oldStats = ArmorRegistry.getStats(oldArmor.getItem());
+                    stats.setArmorScore(stats.get_armorScore() - oldStats.getArmorScore());
+                    player.sendSystemMessage(Component.literal("Removed: " + oldArmor.getHoverName().toString() + " your new armor score is: " + stats.get_armorScore()));
+                }
+                /// checking if armor was only added
+                if (oldArmor.isEmpty() && !newArmor.isEmpty()) {
+                    ArmorStats newStats = ArmorRegistry.getStats(newArmor.getItem());
+                    stats.setArmorScore(stats.get_armorScore() + newStats.getArmorScore());
+                    player.sendSystemMessage(Component.literal("Equipped: " + newArmor.getHoverName().toString() + " your new armor score is: " + stats.get_armorScore()));
+                }
+                ///  checking for swapped armor
+                if (!oldArmor.isEmpty() && !newArmor.isEmpty()) {
+                    ArmorStats oldStats = ArmorRegistry.getStats(oldArmor.getItem());
+                    ArmorStats newStats = ArmorRegistry.getStats(newArmor.getItem());
+                    stats.setArmorScore(stats.get_armorScore() - oldStats.getArmorScore() + newStats.getArmorScore());
+                    player.sendSystemMessage(Component.literal("Swapped armor: " + oldArmor.getHoverName().toString() + " for " + newArmor.getHoverName().toString() + " new score is: " + stats.get_armorScore()));
+                }
+            }
+        }
+    }
+
+    /// for weapon related info
+    /// first start up
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PlayerStats p_stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+            Inventory inv = player.getInventory();
+
+            // Reset best-type scores and total before scanning (optional: clear per-type map)
+            p_stats.clearBestTypeScores(); // implement this to clear the map if your PlayerStats supports it
+            p_stats.setWeaponScore(0);
+
+            // Scan inventory for best weapons by type
+            for (int i = 0; i < inv.getContainerSize(); i++) {
+                ItemStack stack = inv.getItem(i);
+                if (stack.isEmpty()) continue;
+
+                WeaponStats wstats = WeaponRegistry.WEAPON_STATS.get(stack.getItem());
+                if (wstats != null) {
+                    String type = wstats.get_type();
+                    double strength = wstats.get_weapon_strength();
+
+                    double bestScore = p_stats.get_bestTypeScore(type);
+                    if (strength > bestScore) {
+                        p_stats.setBestTypeScore(type, strength);
+                        p_stats.setWeaponScore(p_stats.get_weaponScore() + strength - bestScore);
+                    }
+                }
+            }
+            // Compute total from best-per-type scores and store it
+            double totalScore = p_stats.get_weaponScore(); // implement this to sum your best-type map
+            p_stats.setWeaponScore(totalScore);
+
+            player.sendSystemMessage(Component.literal(
+                    "Your starting weapon strength is " + totalScore
+            ));
+        }
+    }
+    /// pick up weapon
+    @SubscribeEvent
+    public static void onItemPickup(PlayerEvent.ItemPickupEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            ItemStack stack = event.getStack();
+
+            /// checking if it's a weapon
+            WeaponStats newWeapon = WeaponRegistry.WEAPON_STATS.get(stack.getItem());
+            if (newWeapon == null) return;
+
+            PlayerStats p_stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+
+            double newScore = newWeapon.get_weapon_strength();
+            double bestScore = p_stats.get_bestTypeScore(newWeapon.get_type());
+            // Only update if stronger
+            if (newScore > bestScore)
+            {
+                p_stats.setWeaponScore(p_stats.get_weaponScore() + (newScore - bestScore));
+                p_stats.setBestTypeScore(newWeapon.get_type(), newScore);
+
+                player.sendSystemMessage(Component.literal("You picked up a stronger " + newWeapon.get_type() + ". Total weapon strength: " + p_stats.get_weaponScore()
+                ));
+
+            }
+        }
+    }
+    /// picked up out of container
+    @SubscribeEvent
+    public static void onItemTakenFromContainer(PlayerContainerEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PlayerStats p_stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+            AbstractContainerMenu container = event.getContainer();
+
+            for (Slot slot : container.slots) {
+                ItemStack stack = slot.getItem();
+                WeaponStats stats = WeaponRegistry.WEAPON_STATS.get(stack.getItem());
+
+                if (stats != null) {
+                    String type = stats.get_type();
+                    double newScore = stats.get_weapon_strength();
+                    double bestScore = p_stats.get_bestTypeScore(type);
+
+                    // If the item taken is stronger than current best, update
+                    if (newScore > bestScore) {
+                        p_stats.setWeaponScore(p_stats.get_weaponScore() + (newScore - bestScore));
+                        p_stats.setBestTypeScore(type, newScore);
+
+                        player.sendSystemMessage(Component.literal(
+                                "You took a stronger " + type + " from a container. Overall weapon score: " + p_stats.get_weaponScore()
+                        ));
+                    }
+
+                }
+            }
+        }
+    }
+
+    /// drop weapon
+    /// item drop with q or other
+    @SubscribeEvent
+    public static void onItemDrop(ItemTossEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer player) {
+            ItemStack dropped = event.getEntity().getItem();
+
+            WeaponStats stats = WeaponRegistry.WEAPON_STATS.get(dropped.getItem());
+            if (stats == null) return;
+
+            PlayerStats p_stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+
+            double bestScore = p_stats.get_bestTypeScore(stats.get_type());
+
+            // If the dropped item was their best weapon, rescan inventory
+            if (bestScore == stats.get_weapon_strength()) {
+                double newBest = findBestWeaponOfType(player, stats.get_type());
+                p_stats.setBestTypeScore(stats.get_type(), newBest);
+                p_stats.setWeaponScore(p_stats.get_weaponScore() - bestScore);
+
+                player.sendSystemMessage(Component.literal("You dropped your best " + stats.get_type() + ". New best weapn strenght is " + p_stats.get_weaponScore()));
+            }
+        }
+    }
+    /// put in container
+    @SubscribeEvent
+    public static void onItemMovedToContainer(PlayerContainerEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PlayerStats p_stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+            AbstractContainerMenu container = event.getContainer();
+
+            // Iterate through all slots in the container
+            for (Slot slot : container.slots) {
+                ItemStack stack = slot.getItem();
+                WeaponStats stats = WeaponRegistry.WEAPON_STATS.get(stack.getItem());
+                if (stats != null) {
+                    String type = stats.get_type();
+                    double bestScore = p_stats.get_bestTypeScore(type);
+
+                    // If the item moved was the best weapon of its type
+                    if (bestScore == stats.get_weapon_strength()) {
+                        // Recalculate the new best weapon of that type from inventory
+                        double newBest = findBestWeaponOfType(player, type);
+                        p_stats.setBestTypeScore(type, newBest);
+
+                        // Update overall weapon score (subtract old best, add new best)
+                        double newTotal = p_stats.get_weaponScore() - bestScore + newBest;
+                        p_stats.setWeaponScore(newTotal);
+
+                        // Notify the player
+                        player.sendSystemMessage(Component.literal(
+                                "You moved your best " + type + " into a container. Overall weapon score: " + newTotal
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    /// helper function
+    /// returns the best weapon in an inventory
+    public static double findBestWeaponOfType(Player player, String type)
+    {
+        double best = 0;
+        Inventory inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i ++)
+        {
+            ItemStack stack = inv.getItem(i);
+            WeaponStats stats = WeaponRegistry.WEAPON_STATS.get(stack.getItem());
+            if (stats != null && stats.get_type().equals(type))
+            {
+                best = Math.max(best, stats.get_weapon_strength());
+            }
+        }
+        return best;
+    }
+}
