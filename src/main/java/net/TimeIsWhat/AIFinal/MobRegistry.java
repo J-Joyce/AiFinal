@@ -21,4 +21,5 @@ public class MobRegistry
         return MOB_STATS.getOrDefault(type, new MobStats(0.0, 0.0, "unknown"));
     }
 
+    /// 1 vindicator = 4 pillagers = 2 evokers
 }

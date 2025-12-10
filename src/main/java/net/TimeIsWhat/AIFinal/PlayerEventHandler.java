@@ -6,7 +6,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.*;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
@@ -17,7 +16,6 @@ import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.inventory.Slot;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 
 import javax.swing.*;
@@ -258,4 +256,18 @@ public class PlayerEventHandler {
         }
         return best;
     }
+
+    public static Map<UUID, PlayerStats> getStatsMap() {
+        return statsMap;
+    }
+    /// automaticallty gives the player score so don't need to add a lot of extra steps
+    public static double getPlayerScore(ServerPlayer player) {
+        PlayerStats stats = statsMap.get(player.getUUID());
+        if (stats != null) {
+            return stats.get_playerScore(); // assuming PlayerStats has this method
+        }
+        return 0.0; // default if no stats found
+    }
+
+
 }

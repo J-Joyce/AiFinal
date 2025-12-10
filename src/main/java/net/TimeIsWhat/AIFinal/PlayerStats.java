@@ -17,6 +17,7 @@ public class PlayerStats {
     private final Map<String, Double> bestTypeScore = new HashMap<>();
 
 
+
     /// getters
     public int get_deaths() {return deaths;}
     public int get_mobsKilled() {return mobsKilled;}
@@ -43,6 +44,7 @@ public class PlayerStats {
             bestTypeScore.put(type, new_score);
         }
     }
+
     public void clearBestTypeScores(){
         bestTypeScore.clear();
     }
@@ -53,5 +55,11 @@ public class PlayerStats {
         for (double v : bestTypeScore.values()) sum += v;
         return sum;
     }
+
+    public double get_playerScore()
+    {
+        return ((armorScore * .4) + (weaponScore * .6)) * Math.max(0.0, (1 - (.2 * deaths))) + (numberOfCloseCalls);
+    }
+
 }
 
