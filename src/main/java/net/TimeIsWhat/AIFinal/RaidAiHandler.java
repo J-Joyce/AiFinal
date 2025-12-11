@@ -4,6 +4,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.raid.Raid;
+import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntitySpawnReason;
 
@@ -12,19 +14,18 @@ import com.mojang.logging.LogUtils;
 
 import java.util.Map;
 
-import net.TimeIsWhat.AIFinal.PlayerEventHandler;
-
 public class RaidAiHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public void spawnWave(ServerLevel level, BlockPos raidCenter, ServerPlayer player) {
+    public void spawnWave(ServerLevel level, Raid raid, BlockPos raidCenter, ServerPlayer player) {
         double score = PlayerEventHandler.getPlayerScore(player);
         LOGGER.info("Starting raid wave for player {} with score {}", player.getName().getString(), score);
 
         Map<EntityType<?>, Integer> spawns = RaidRuleEngine.calculateWaveSpawns(score);
         LOGGER.info("Calculated spawn plan: {}", spawns);
 
-        spawns.forEach((mobType, count) -> {
+        spawns.forEach((mobType, count) ->
+        {
             LOGGER.info("Spawning {} of type {}", count, mobType.toShortString());
 
             for (int i = 0; i < count; i++) {
@@ -39,11 +40,7 @@ public class RaidAiHandler {
                 );
 
                 if (mob != null) {
-                    mob.setPos(
-                            raidCenter.getX(),
-                            raidCenter.getY(),
-                            raidCenter.getZ()
-                    );
+                    mob.setPos(raidCenter.getX(), raidCenter.getY(), raidCenter.getZ());
                     level.addFreshEntity(mob);
 
                     LOGGER.info("Spawned {} at ({}, {}, {})",
@@ -52,12 +49,18 @@ public class RaidAiHandler {
                             raidCenter.getY(),
                             raidCenter.getZ()
                     );
-                } else {
-                    LOGGER.warn("Failed to spawn entity of type {}", mobType.toShortString());
+
+                    // Register raiders with the raid so they count toward progression
+                    if (mob instanceof Raider customRaider) {
+                        raid.joinRaid(level, raid.getGroupsSpawned(), customRaider, raidCenter, false);
+                    } else {
+                        LOGGER.warn("Failed to spawn entity of type {}", mobType.toShortString());
+                    }
                 }
             }
         });
 
         LOGGER.info("Raid wave spawn complete.");
+
     }
 }

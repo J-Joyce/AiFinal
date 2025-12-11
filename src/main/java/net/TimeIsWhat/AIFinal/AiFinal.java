@@ -2,6 +2,7 @@ package net.TimeIsWhat.AIFinal;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -31,6 +32,8 @@ public final class AiFinal {
 
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        //MinecraftForge.EVENT_BUS.register(new RaidEventListener());
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
