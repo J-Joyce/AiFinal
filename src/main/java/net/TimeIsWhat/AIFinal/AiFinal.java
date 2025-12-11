@@ -10,7 +10,11 @@ import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
+
+import net.TimeIsWhat.AIFinal.DataLogger;
+import java.nio.file.Path;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(AiFinal.MOD_ID)
@@ -19,6 +23,8 @@ public final class AiFinal {
     public static final String MOD_ID = "aifinal";
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
+
+
 
     public AiFinal(FMLJavaModLoadingContext context) {
         var modBusGroup = context.getModBusGroup();
@@ -32,6 +38,14 @@ public final class AiFinal {
 
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        // Initialize the data logger with the config directory
+        Path configDir = FMLPaths.CONFIGDIR.get();
+        DataLogger.init(configDir);
+
+        // Register event handlers
+        MinecraftForge.EVENT_BUS.register(new CombatDataEvents());
+
 
         //MinecraftForge.EVENT_BUS.register(new RaidEventListener());
     }
