@@ -54,8 +54,6 @@ public class ArmorRegistry {
 
         // Turtle Shell
         ARMOR_STATS.put(Items.TURTLE_HELMET, new ArmorStats("Turtle Shell", 2, 0));
-        /// shield
-        ARMOR_STATS.put(Items.SHIELD, new ArmorStats("Shield", 8,0));
     }
 
     // Lookup helper

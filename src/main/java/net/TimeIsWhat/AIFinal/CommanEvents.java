@@ -1,7 +1,6 @@
 package net.TimeIsWhat.AIFinal;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -9,7 +8,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.raid.Raid;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -21,7 +19,6 @@ import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 
 import java.util.Map;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
 

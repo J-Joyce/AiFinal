@@ -19,8 +19,25 @@ public class RaidRuleEngine
     }
 
     private static int calculateSpawnCount(EntityType<?> mobType, double playerScore) {
-        double factor = mobSpawnFactors.getOrDefault(mobType, 50.0); // default factor
-        return (int) Math.max(1, playerScore / factor);
+        double factor = mobSpawnFactors.getOrDefault(mobType, 5.0); // default factor
+
+        if (playerScore <= 14 && factor <= 8)/// copper armor
+        {
+            return (int) Math.max(0, playerScore / factor);
+        }
+        else if (playerScore <= 17 && playerScore >= 14.1 && factor <= 10)/// iron armor
+        {
+            if (mobType == EntityType.WITCH) {return 1;}
+            return (int) Math.max(0, playerScore / factor);
+        }
+        else if (playerScore <= 24 && playerScore >= 17.1 && factor <= 20)/// diamond armor
+        {
+            if (mobType == EntityType.WITCH) { return (int) Math.min(2, playerScore / factor); }
+            if (mobType == EntityType.PILLAGER) { return (int) Math.min(4, playerScore / factor);}
+            return (int) Math.max(0, playerScore / factor);
+        }
+        /// Netheirte armor
+        return 0;
     }
     public static Map<EntityType<?>, Integer> calculateWaveSpawns(double playerScore) {
         Map<EntityType<?>, Integer> result = new HashMap<>();

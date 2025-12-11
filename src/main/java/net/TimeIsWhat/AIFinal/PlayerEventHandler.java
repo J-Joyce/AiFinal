@@ -1,11 +1,13 @@
 package net.TimeIsWhat.AIFinal;
 
+import com.mojang.logging.LogUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.*;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
@@ -17,6 +19,7 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
+import org.slf4j.Logger;
 
 import javax.swing.*;
 import java.util.Set;
@@ -27,6 +30,8 @@ import java.util.UUID;
 @Mod.EventBusSubscriber(modid = "aifinal")
 
 public class PlayerEventHandler {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     /// creating a list of raid mobs
     private static final Set<Class<?>> RAID_MOBS = Set.of(
             Pillager.class,
@@ -48,7 +53,7 @@ public class PlayerEventHandler {
             ///  updating the death counter
             stats.setDeaths(stats.get_deaths() + 1);
             /// output of new death counter
-            player.sendSystemMessage(Component.literal("Death count is now " + stats.get_deaths()));
+            LOGGER.info("Death count is now {}", stats.get_deaths());
         }
     }
 
@@ -61,7 +66,7 @@ public class PlayerEventHandler {
             if (RAID_MOBS.contains(entity.getClass())) {
                 PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
                 stats.setMobsKilled(stats.get_mobsKilled() + 1);
-                player.sendSystemMessage(Component.literal("You have killed " + stats.get_mobsKilled() + " number of raid mobs"));
+                LOGGER.info("You have killed {} number of raid mobs", stats.get_mobsKilled());
             }
         }
     }
@@ -74,7 +79,7 @@ public class PlayerEventHandler {
             if (newHealth > 0 && newHealth <= 6.0f) {
                 PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
                 stats.setNumberOfCloseCalls(stats.get_numberOfCloseCalls() + 1);
-                player.sendSystemMessage(Component.literal("That was your " + stats.get_numberOfCloseCalls() + " close call!"));
+                LOGGER.info("That was your {} close call!", stats.get_numberOfCloseCalls());
             }
         }
     }
@@ -86,8 +91,6 @@ public class PlayerEventHandler {
                 /// getting the new and old armor for armor score calculation
                 ItemStack oldArmor = event.getFrom();
                 ItemStack newArmor = event.getTo();
-                /// get the slot value from the event
-                EquipmentSlot slot = event.getSlot();
 
                 PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
 
@@ -95,20 +98,38 @@ public class PlayerEventHandler {
                 if (!oldArmor.isEmpty() && newArmor.isEmpty()) {
                     ArmorStats oldStats = ArmorRegistry.getStats(oldArmor.getItem());
                     stats.setArmorScore(stats.get_armorScore() - oldStats.getArmorScore());
-                    player.sendSystemMessage(Component.literal("Removed: " + oldArmor.getHoverName().toString() + " your new armor score is: " + stats.get_armorScore()));
+                    LOGGER.info("Removed armor. New armor score is: {}", stats.get_armorScore());
                 }
                 /// checking if armor was only added
                 if (oldArmor.isEmpty() && !newArmor.isEmpty()) {
                     ArmorStats newStats = ArmorRegistry.getStats(newArmor.getItem());
                     stats.setArmorScore(stats.get_armorScore() + newStats.getArmorScore());
-                    player.sendSystemMessage(Component.literal("Equipped: " + newArmor.getHoverName().toString() + " your new armor score is: " + stats.get_armorScore()));
+                    LOGGER.info("Equipped armor. New armor score is: {}", stats.get_armorScore());
                 }
                 ///  checking for swapped armor
                 if (!oldArmor.isEmpty() && !newArmor.isEmpty()) {
                     ArmorStats oldStats = ArmorRegistry.getStats(oldArmor.getItem());
                     ArmorStats newStats = ArmorRegistry.getStats(newArmor.getItem());
                     stats.setArmorScore(stats.get_armorScore() - oldStats.getArmorScore() + newStats.getArmorScore());
-                    player.sendSystemMessage(Component.literal("Swapped armor: " + oldArmor.getHoverName().toString() + " for " + newArmor.getHoverName().toString() + " new score is: " + stats.get_armorScore()));
+                    LOGGER.info("Swapped armor. New armor score is: {}", stats.get_armorScore());
+                }
+            }
+            if (event.getSlot() == EquipmentSlot.OFFHAND)
+            {
+                ItemStack oldItem = event.getFrom();
+                ItemStack newItem = event.getTo();
+
+                PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+
+                if (oldItem.getItem() == Items.SHIELD)
+                {
+                    stats.setWeaponScore(stats.get_weaponScore() - 8);
+                    LOGGER.info("Removed shield. New armor score is: {}", stats.get_armorScore());
+                }
+                if (newItem.getItem() == Items.SHIELD)
+                {
+                    stats.setWeaponScore(stats.get_weaponScore() + 8);
+                    LOGGER.info("Equipped shield. New armor score is: {}", stats.get_armorScore());
                 }
             }
         }
@@ -147,9 +168,8 @@ public class PlayerEventHandler {
             double totalScore = p_stats.get_weaponScore(); /// implement this to sum your best-type map
             p_stats.setWeaponScore(totalScore);
 
-            player.sendSystemMessage(Component.literal(
-                    "Your starting weapon strength is " + totalScore
-            ));
+            LOGGER.info("Starting weapon score: {}", totalScore);
+
         }
     }
     /// pick up weapon
@@ -173,7 +193,7 @@ public class PlayerEventHandler {
                 p_stats.setBestTypeScore((newWeapon.get_type()), newScore);
                 double totalScore = p_stats.add_WeaponScores();
                 p_stats.setWeaponScore(totalScore);
-                player.sendSystemMessage(Component.literal("You picked up a stronger " + newWeapon.get_type() + ". Total weapon strength: " + p_stats.get_weaponScore()));
+                LOGGER.info("New stronger weapon. New weapon strength: {}", p_stats.get_weaponScore());
 
             }
         }
@@ -199,7 +219,7 @@ public class PlayerEventHandler {
                 p_stats.setBestTypeScore(stats.get_type(), newBest);
                 p_stats.setWeaponScore(p_stats.get_weaponScore() - bestScore);
 
-                player.sendSystemMessage(Component.literal("You dropped your best " + stats.get_type() + ". New best weapon strength is " + p_stats.get_weaponScore()));
+                LOGGER.info("Removed strongest weapon. New weapon strength: {}", p_stats.get_weaponScore());
             }
         }
     }
@@ -234,7 +254,7 @@ public class PlayerEventHandler {
             double toatalScore = p_stats.add_WeaponScores();
             p_stats.setWeaponScore(toatalScore);
 
-            player.sendSystemMessage(Component.literal("Container closed, new score: " + p_stats.get_weaponScore()));
+            LOGGER.info("Used container. The weapon strength: {}", p_stats.get_weaponScore());
 
         }
     }

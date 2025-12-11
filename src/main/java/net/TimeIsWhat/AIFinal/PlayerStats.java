@@ -58,7 +58,7 @@ public class PlayerStats {
 
     public double get_playerScore()
     {
-        return ((armorScore * .4) + (weaponScore * .6)) * Math.max(0.0, (1 - (.2 * deaths))) + (numberOfCloseCalls);
+        return ((armorScore * .4) + (weaponScore * .6)) * Math.max(0.0, (1 - (.2 * deaths))); ///+ (numberOfCloseCalls);
     }
 
 }

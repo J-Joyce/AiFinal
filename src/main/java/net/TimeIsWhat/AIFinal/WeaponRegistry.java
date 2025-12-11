@@ -40,6 +40,8 @@ public class WeaponRegistry
 
         /// Crossbow
         WEAPON_STATS.put(Items.CROSSBOW,        new WeaponStats("Crossbow",        9, 0.8f, "ranged"));
+        /// shield
+        WEAPON_STATS.put(Items.SHIELD, new WeaponStats("Shield", 8,1, "off-hand"));
     }
 
 }
