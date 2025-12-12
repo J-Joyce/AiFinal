@@ -27,8 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Mod.EventBusSubscriber(modid = "aifinal")
-
+@Mod.EventBusSubscriber(modid = "aifinal", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PlayerEventHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
 

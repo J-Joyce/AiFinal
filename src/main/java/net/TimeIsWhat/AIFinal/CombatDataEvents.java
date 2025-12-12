@@ -54,7 +54,7 @@ public class CombatDataEvents {
     }
 
     private static final Map<UUID, PlayerStats> statsMap = new HashMap<>();
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    public void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("myscore")
                         .executes(ctx -> {

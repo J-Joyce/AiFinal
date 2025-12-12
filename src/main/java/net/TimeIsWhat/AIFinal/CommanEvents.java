@@ -2,6 +2,7 @@ package net.TimeIsWhat.AIFinal;
 
 import com.mojang.brigadier.Command;
 import com.mojang.logging.LogUtils;
+import net.TimeIsWhat.AIFinal.waves.WaveManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,12 +20,15 @@ import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 
 import java.util.Map;
+import java.util.UUID;
+
 import net.minecraft.world.phys.Vec3;
 
 
 @Mod.EventBusSubscriber(modid = AiFinal.MOD_ID) // server-side subscriber
 public class CommanEvents {
     private static final Logger LOGGER = LogUtils.getLogger();
+    public static final WaveManager WAVE_MANAGER = new WaveManager();
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
@@ -79,8 +83,11 @@ public class CommanEvents {
                 .requires(source -> source.hasPermission(0))
                 .executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
-                    PlayerStats stats = PlayerEventHandler.getStatsMap().get(player.getUUID());
+                    Map<UUID, PlayerStats> map = PlayerEventHandler.getStatsMap();
+                    PlayerStats stats = map.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
                     double playerScore = stats.get_playerScore();
+
+                    player.sendSystemMessage(Component.literal("Should spawn"));
 
                     /// calculates what mobs to spawn
                     Map<EntityType<?>, Integer> spawns = RaidRuleEngine.calculateWaveSpawns(playerScore);
@@ -110,18 +117,50 @@ public class CommanEvents {
                                     true,
                                     false
                             );
-
                             if (mob != null) {
                                 LOGGER.info("Spawned {} at {}", mob.getType().toShortString(), offsetPos);
                             } else {
                                 LOGGER.warn("Failed to spawn entity of type {}", mobType.toShortString());
                             }
                         }
-
-
                     });
+                    return Command.SINGLE_SUCCESS;
+                })
+        );
 
 
+        dispatcher.register(Commands.literal("startwaves")
+                .requires(source -> source.hasPermission(0))
+                .executes(context -> {
+
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    ServerLevel level = player.level();
+
+                    //  Load PlayerStats
+                    Map<UUID, PlayerStats> map = PlayerEventHandler.getStatsMap();
+                    PlayerStats stats = map.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
+                    double playerScore = stats.get_playerScore();
+
+                    //  Start the wave system
+                    WaveManager wm = WAVE_MANAGER;
+
+                    if (wm.isRunning()) {
+                        player.sendSystemMessage(Component.literal("Waves are already running."));
+                        return Command.SINGLE_SUCCESS;
+                    }
+
+                    wm.starWaves(level, player);
+
+                    player.sendSystemMessage(Component.literal("Wave system started!"));
+                    return Command.SINGLE_SUCCESS;
+                })
+        );
+
+        dispatcher.register(Commands.literal("stopwaves")
+                .requires(source -> source.hasPermission(0))
+                .executes(context -> {
+                    WAVE_MANAGER.stopWaves();
+                    context.getSource().sendSuccess(() -> Component.literal("Waves stopped."), false);
                     return Command.SINGLE_SUCCESS;
                 })
         );
