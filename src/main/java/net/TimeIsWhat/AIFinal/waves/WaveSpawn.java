@@ -2,7 +2,9 @@ package net.TimeIsWhat.AIFinal.waves;
 
 import net.minecraft.world.entity.EntityType;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.mojang.text2speech.Narrator.LOGGER;
@@ -70,9 +72,9 @@ public class WaveSpawn
     private static final Map<EntityType<?>, Double> mobSpawnFactors = new HashMap<>();
     static {
         mobSpawnFactors.put(EntityType.PILLAGER, 5.0);
-        mobSpawnFactors.put(EntityType.VINDICATOR, 20.0);
-        mobSpawnFactors.put(EntityType.EVOKER, 10.0);
-        mobSpawnFactors.put(EntityType.WITCH, 8.0);
+        mobSpawnFactors.put(EntityType.VINDICATOR, 23.0);
+        mobSpawnFactors.put(EntityType.EVOKER, 11.0);
+        //mobSpawnFactors.put(EntityType.WITCH, 8.0);
         mobSpawnFactors.put(EntityType.RAVAGER, 30.0);
     }
 
@@ -86,24 +88,45 @@ public class WaveSpawn
 
         LOGGER.info("[WaveSpawn] Initial wave budget={}", budget);
 
-        for (Map.Entry<EntityType<?>, Double> entry : mobSpawnFactors.entrySet()) {
+        // Sort mobs by descending weight (most powerful first)
+        List<Map.Entry<EntityType<?>, Double>> sorted = new ArrayList<>(mobSpawnFactors.entrySet());
+        sorted.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+
+        LOGGER.info("[WaveSpawn] Sorted mob list (strongest → weakest):");
+        for (var e : sorted) {
+            LOGGER.info("  Mob={} weight={}", e.getKey().toShortString(), e.getValue());
+        }
+
+        //  Greedy allocation
+        for (Map.Entry<EntityType<?>, Double> entry : sorted) {
             EntityType<?> type = entry.getKey();
             double weight = entry.getValue();
 
+            LOGGER.info("[WaveSpawn] Evaluating mob={} weight={} with remaining budget={}",
+                    type.toShortString(), weight, budget);
+
+            if (budget < weight) {
+                LOGGER.info("[WaveSpawn] Mob={} gets 0 spawns (insufficient budget)", type.toShortString());
+                result.put(type, 0);
+                continue;
+            }
+
             int count = (int) Math.floor(budget / weight);
 
-            LOGGER.info("[WaveSpawn] Mob={} weight={} → count={} (budget before={})",
-                    type.toShortString(), weight, count, budget);
+            LOGGER.info("[WaveSpawn] Mob={} → greedy count={} (budget before={})",
+                    type.toShortString(), count, budget);
 
-            if (count > 0) {
-                result.put(type, count);
-                budget -= count * weight;
+            result.put(type, count);
 
-                LOGGER.info("[WaveSpawn] Mob={} consumed {} budget. Remaining={}",
-                        type.toShortString(), (count * weight), budget);
-            } else {
-                result.put(type, 0);
-                LOGGER.info("[WaveSpawn] Mob={} gets 0 spawns (insufficient budget)", type.toShortString());
+            double consumed = count * weight;
+            budget -= consumed;
+
+            LOGGER.info("[WaveSpawn] Mob={} consumed {} budget. Remaining={}",
+                    type.toShortString(), consumed, budget);
+
+            if (budget <= 0) {
+                LOGGER.info("[WaveSpawn] Budget exhausted. Ending greedy allocation.");
+                break;
             }
         }
 

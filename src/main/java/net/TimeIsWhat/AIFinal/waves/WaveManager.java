@@ -1,6 +1,5 @@
 package net.TimeIsWhat.AIFinal.waves;
 
-import net.TimeIsWhat.AIFinal.AiFinal;
 import net.TimeIsWhat.AIFinal.PlayerEventHandler;
 import net.TimeIsWhat.AIFinal.PlayerStats;
 import net.minecraft.core.BlockPos;
@@ -14,17 +13,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.*;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.mojang.text2speech.Narrator.LOGGER;
-@Mod.EventBusSubscriber(modid = AiFinal.MOD_ID) // server-side subscriber
 public class WaveManager {
 
     private boolean running = false;
@@ -34,6 +29,17 @@ public class WaveManager {
     private ServerPlayer player;
 
     private final WaveTracker tracker = new WaveTracker();
+
+    private static final Map<ServerLevel, WaveManager> INSTANCES = new java.util.HashMap<>();
+
+    public static WaveManager get(ServerLevel level) {
+        return INSTANCES.computeIfAbsent(level, l -> new WaveManager());
+    }
+
+    public final WaveTracker getTracker()
+    {
+        return tracker;
+    }
 
     public boolean isRunning() { return running; }
 
@@ -47,7 +53,6 @@ public class WaveManager {
             LOGGER.warn("[WaveManager] Tried to start waves but waves are already running.");
             return;
         }
-
         LOGGER.info("[WaveManager] Starting waves for player {}", player.getName().getString());
 
         running = true;
@@ -77,8 +82,13 @@ public class WaveManager {
 
         LOGGER.info("[WaveManager] PlayerScore = {}", stats.get_playerScore());
 
-        Map<EntityType<?>, Integer> spawns =
-                WaveSpawn.calculateWave(difficulty, stats.get_playerScore());
+        double score = stats.get_playerScore();
+        int deaths = stats.get_deaths();
+        int closeCalls = stats.get_numberOfCloseCalls();
+
+        WaveSpawn spawn = new WaveSpawn(difficulty, score, deaths, closeCalls);
+        difficulty = spawn.adjustDifficulty(difficulty, deaths, closeCalls);
+        Map<EntityType<?>, Integer> spawns = WaveSpawn.calculateWave(difficulty, score);
 
         LOGGER.info("[WaveManager] Wave {} difficulty {} spawn plan: {}", waveNumber, difficulty, spawns);
 
@@ -93,45 +103,54 @@ public class WaveManager {
             Witch.class
     );
 
-    @SubscribeEvent
-    public static void checkWaveCompletion(LivingDeathEvent event) {
-        WaveManager mgr = AiFinal.WAVE_MANAGER;
-        if (mgr == null) return;
-
-        if (!mgr.running) return;
-
-        LivingEntity entity = event.getEntity();
-
-        if (mgr.RAID_MOBS.contains(entity.getClass())) {
-            mgr.tracker.onMobDeath(event);
-
-            if (mgr.tracker.allMobsDead()) {
-                mgr.scheduleNextWave(
-                        (ServerLevel) entity.level(),
-                        mgr.player
-                );
-            }
+//    @SubscribeEvent
+    public void checkWaveCompletion(ServerLevel level, ServerPlayer player) {
+        if (!running) return;
+        if (tracker.allMobsDead())
+        {
+            scheduleNextWave(level, player);
+            LOGGER.info("Wave completed moving on to next wave");
         }
     }
 
-    private void scheduleNextWave(ServerLevel level, ServerPlayer player) {
-        LOGGER.info("[WaveManager] Scheduling next wave in 10 seconds...");
-        level.getServer().execute(() -> countdown(level, player, 10));
-    }
 
-    private void countdown(ServerLevel level, ServerPlayer player, int seconds) {
-        if (seconds <= 0) {
+    private void scheduleNextWave(ServerLevel level, ServerPlayer player) {
+        LOGGER.info("[WaveManager] Scheduling next wave in 30 seconds...");
+        runDelayed(level, 30 * 20, () -> {
             LOGGER.info("[WaveManager] Countdown finished. Starting next wave.");
             waveNumber++;
             runWaveLoop(level, player);
+        });
+    }
+
+    private void runDelayed(ServerLevel level, int ticks, Runnable task) {
+        tickDelay(level, ticks, task);
+    }
+
+    private void tickDelay(ServerLevel level, int ticks, Runnable task) {
+        if (ticks <= 0) {
+            task.run();
             return;
         }
 
-        LOGGER.info("[WaveManager] Countdown: {} seconds remaining", seconds);
-        player.sendSystemMessage(Component.literal("Next wave in " + seconds + "..."));
-
-        level.getServer().execute(() -> countdown(level, player, seconds - 1));
+        level.getServer().execute(() -> tickDelay(level, ticks - 1, task));
     }
+
+//    private void countdown(ServerLevel level, ServerPlayer player, int seconds) {
+//        if (seconds <= 0) {
+//            LOGGER.info("[WaveManager] Countdown finished. Starting next wave.");
+//            waveNumber++;
+//            runWaveLoop(level, player);
+//            return;
+//        }
+//
+//        LOGGER.info("[WaveManager] Countdown: {} seconds remaining", seconds);
+//        if (seconds % 20 == 0)
+//        {
+//            player.sendSystemMessage(Component.literal("Next wave in " + seconds + "..."));
+//        }
+//        level.getServer().execute(() -> countdown(level, player, seconds - 1));
+//    }
 
     private void spawnWave(ServerLevel level, ServerPlayer player, Map<EntityType<?>, Integer> spawns) {
 

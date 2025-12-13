@@ -142,7 +142,7 @@ public class CommanEvents {
                     double playerScore = stats.get_playerScore();
 
                     //  Start the wave system
-                    WaveManager wm = WAVE_MANAGER;
+                    WaveManager wm = WaveManager.get(level);
 
                     if (wm.isRunning()) {
                         player.sendSystemMessage(Component.literal("Waves are already running."));
@@ -150,7 +150,7 @@ public class CommanEvents {
                     }
 
                     wm.starWaves(level, player);
-
+                    LOGGER.info("WaveManager instance: {}", System.identityHashCode(wm));
                     player.sendSystemMessage(Component.literal("Wave system started!"));
                     return Command.SINGLE_SUCCESS;
                 })
@@ -159,7 +159,9 @@ public class CommanEvents {
         dispatcher.register(Commands.literal("stopwaves")
                 .requires(source -> source.hasPermission(0))
                 .executes(context -> {
-                    WAVE_MANAGER.stopWaves();
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    ServerLevel level = player.level();
+                    WaveManager.get(level).stopWaves();
                     context.getSource().sendSuccess(() -> Component.literal("Waves stopped."), false);
                     return Command.SINGLE_SUCCESS;
                 })

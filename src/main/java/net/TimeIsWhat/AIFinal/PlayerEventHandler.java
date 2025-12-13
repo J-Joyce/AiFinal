@@ -1,7 +1,9 @@
 package net.TimeIsWhat.AIFinal;
 
 import com.mojang.logging.LogUtils;
+import net.TimeIsWhat.AIFinal.waves.WaveManager;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.*;
@@ -61,11 +63,22 @@ public class PlayerEventHandler {
     public static void onMobKill(LivingDeathEvent event) {
         if (event.getSource().getEntity() instanceof ServerPlayer player) {
             Entity entity = event.getEntity();
-            ;
+
+            ServerLevel level = player.level();
+            WaveManager manager = WaveManager.get(level);
+
             if (RAID_MOBS.contains(entity.getClass())) {
                 PlayerStats stats = statsMap.computeIfAbsent(player.getUUID(), id -> new PlayerStats());
                 stats.setMobsKilled(stats.get_mobsKilled() + 1);
                 LOGGER.info("You have killed {} number of raid mobs", stats.get_mobsKilled());
+                LOGGER.info("WaveManager instance: {}", System.identityHashCode(manager));
+                if (manager.isRunning())
+                {
+                    manager.getTracker().onMobDeath(event);
+                    LOGGER.info("mob dead updating and checking for wave completion");
+                    manager.checkWaveCompletion(level, player);
+                }
+
             }
         }
     }
